@@ -9,10 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    // Remove the deprecated serverComponentsExternalPackages
-  },
-  // Move to the new location
+  // Use the new serverExternalPackages instead of the deprecated experimental.serverComponentsExternalPackages
   serverExternalPackages: ["@deepgram/sdk", "twilio"],
   webpack: (config) => {
     config.resolve.fallback = {
