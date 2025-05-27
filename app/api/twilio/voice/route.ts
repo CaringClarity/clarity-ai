@@ -1,6 +1,5 @@
 /**
- * Twilio Voice Handler
- * MIGRATED: Integrated with multi-tenant database and new streaming service
+ * Twilio Voice Handler - Fixed version with better error handling
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -8,11 +7,10 @@ import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-/**
- * Handle incoming Twilio voice calls
- */
 export async function POST(request: NextRequest) {
   try {
+    console.log("=== TWILIO VOICE WEBHOOK CALLED ===")
+
     const formData = await request.formData()
     const CallSid = formData.get("CallSid") as string
     const From = formData.get("From") as string
@@ -20,15 +18,31 @@ export async function POST(request: NextRequest) {
 
     console.log(`📞 Incoming call from ${From} to ${To} (SID: ${CallSid})`)
 
-    // Get default tenant (counseling practice)
-    const { data: tenant } = await supabase.from("tenants").select("id").eq("business_type", "counseling").single()
+    // Get default tenant (counseling practice) - improved query
+    console.log("🔍 Querying for counseling tenant...")
+    const { data: tenants, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id, name, business_type, settings")
+      .eq("business_type", "counseling")
+      .eq("active", true)
 
-    if (!tenant) {
-      throw new Error("No tenant found")
+    if (tenantError) {
+      console.error("❌ Database error:", tenantError)
+      throw new Error(`Database error: ${tenantError.message}`)
     }
 
+    console.log("📊 Query result:", { tenants, count: tenants?.length })
+
+    if (!tenants || tenants.length === 0) {
+      console.error("❌ No active counseling tenant found")
+      throw new Error("No active counseling tenant found")
+    }
+
+    const tenant = tenants[0]
+    console.log("✅ Found tenant:", tenant.name, "ID:", tenant.id)
+
     // Create or get user
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from("users")
       .upsert(
         {
@@ -44,36 +58,42 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    // Create conversation
-    await supabase.from("conversations").insert({
+    if (userError) {
+      console.error("❌ User creation error:", userError)
+      // Continue anyway - don't fail the call for user creation issues
+    } else {
+      console.log("✅ User created/updated:", user?.id)
+    }
+
+    // Create conversation record
+    const { error: conversationError } = await supabase.from("conversations").insert({
       tenant_id: tenant.id,
-      user_id: user.id,
+      user_id: user?.id || null,
       channel: "voice",
       status: "active",
       context: { callSid: CallSid, from: From, to: To, intent: "greeting" },
     })
 
-    // Generate unique session ID
-    const sessionId = `session-${CallSid}-${Date.now()}`
+    if (conversationError) {
+      console.error("❌ Conversation creation error:", conversationError)
+      // Continue anyway - don't fail the call
+    }
 
-    // Create TwiML response
+    // Create TwiML response with greeting
     const twiml = new twilio.twiml.VoiceResponse()
 
-    // Get streaming endpoint URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-app.vercel.app"
-    const streamUrl = `${baseUrl}/api/websocket/session/${sessionId}`
+    const greeting =
+      tenant.settings?.voice_agent?.greeting ||
+      "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
 
-    console.log(`🔗 Streaming call to: ${streamUrl}`)
+    twiml.say(greeting)
 
-    // Connect to WebSocket stream
-    const connect = twiml.connect()
-    connect.stream({ url: streamUrl })
-
+    console.log("✅ Returning TwiML response")
     return new NextResponse(twiml.toString(), {
       headers: { "Content-Type": "text/xml" },
     })
   } catch (error) {
-    console.error("Error handling incoming call:", error)
+    console.error("💥 Error handling incoming call:", error)
 
     const twiml = new twilio.twiml.VoiceResponse()
     twiml.say("Sorry, we encountered an error processing your call. Please try again later.")
