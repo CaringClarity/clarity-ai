@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "name": "caring-clarity-ai-assistant",
+  "regions": ["iad1"],
+  "env": {
+    "BUILD_TIME": "@now"
+  },
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/websocket/:path*",
+      "destination": "/api/websocket/:path*"
+    }
+  ]
+}
