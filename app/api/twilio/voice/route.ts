@@ -1,5 +1,5 @@
 /**
- * Twilio Voice Webhook Handler - Corrected version
+ * Twilio Voice Webhook Handler - Working version without active column
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -18,13 +18,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`📞 Incoming call from ${From} to ${To} (SID: ${CallSid})`)
 
-    // Query for counseling tenant by business_type and active status
+    // Query for counseling tenant - WITHOUT active column to avoid the error
     console.log("🔍 Querying for counseling tenant...")
     const { data: tenants, error: tenantError } = await supabase
       .from("tenants")
-      .select("id, name, business_type, settings, active")
+      .select("id, name, business_type, settings")
       .eq("business_type", "counseling")
-      .eq("active", true)
       .limit(1)
 
     if (tenantError) {
@@ -78,6 +77,8 @@ export async function POST(request: NextRequest) {
     if (conversationError) {
       console.error("❌ Conversation creation error:", conversationError)
       // Continue anyway - don't fail the call
+    } else {
+      console.log("✅ Conversation created")
     }
 
     // Create TwiML response with greeting
