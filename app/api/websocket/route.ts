@@ -4,7 +4,25 @@
  */
 import type { NextRequest } from "next/server"
 
-// This will be handled by the streaming service
 export async function GET(request: NextRequest) {
-  return new Response("WebSocket endpoint - handled by streaming service", { status: 200 })
+  const { searchParams } = new URL(request.url)
+  const sessionId = searchParams.get('sessionId')
+  
+  if (!sessionId) {
+    return new Response("Missing sessionId parameter", { status: 400 })
+  }
+  
+  // Redirect to the WebSocket server on Render
+  const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
+  const targetUrl = `${renderWebSocketUrl}/session/${sessionId}`
+  
+  console.log(`🔄 Redirecting WebSocket session to: ${targetUrl}`)
+  
+  return new Response(null, {
+    status: 307,
+    headers: {
+      'Location': targetUrl,
+      'Upgrade': 'websocket'
+    }
+  })
 }
