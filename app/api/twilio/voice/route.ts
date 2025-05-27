@@ -1,5 +1,5 @@
 /**
- * Twilio Voice Webhook Handler - Complete version with active column and Deepgram
+ * Twilio Voice Webhook Handler - Optimized for Render WebSocket + Vercel deployment
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -18,8 +18,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`📞 Incoming call from ${From} to ${To} (SID: ${CallSid})`)
 
-    // Query for active counseling tenant - now with active column
-    console.log("🔍 Querying for counseling tenant...")
+    // Query for active counseling tenant
     const { data: tenants, error: tenantError } = await supabase
       .from("tenants")
       .select("id, name, business_type, settings, active")
@@ -31,8 +30,6 @@ export async function POST(request: NextRequest) {
       console.error("❌ Database error:", tenantError)
       throw new Error(`Database error: ${tenantError.message}`)
     }
-
-    console.log("📊 Query result:", { tenants, count: tenants?.length })
 
     if (!tenants || tenants.length === 0) {
       console.error("❌ No active counseling tenant found")
@@ -52,9 +49,7 @@ export async function POST(request: NextRequest) {
           name: "Caller",
           metadata: { lastCallSid: CallSid },
         },
-        {
-          onConflict: "tenant_id,phone_number",
-        },
+        { onConflict: "tenant_id,phone_number" },
       )
       .select()
       .single()
@@ -82,44 +77,94 @@ export async function POST(request: NextRequest) {
       console.log("✅ Conversation created")
     }
 
-    // Create TwiML response with Deepgram integration
+    // Create TwiML response with Render WebSocket integration
     const twiml = new twilio.twiml.VoiceResponse()
 
+    // Get greeting from tenant settings
     const greeting =
       tenant.settings?.voice_agent?.greeting ||
       "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
 
-    // Use Deepgram for text-to-speech
-    twiml.say(
-      {
-        voice: "Polly.Joanna-Neural", // You can change this to your preferred voice
-      },
-      greeting,
-    )
+    // Generate initial greeting with Deepgram TTS
+    const greetingAudio = await generateDeepgramTTS(greeting)
 
-    // Start a stream to capture audio and send to your AI processing endpoint
-    const start = twiml.start()
-    start.stream({
-      name: "voice-stream",
-      url: `wss://${process.env.NEXT_PUBLIC_APP_URL?.replace("https://", "") || "your-domain.vercel.app"}/api/twilio/stream`,
+    if (greetingAudio) {
+      // Play the Deepgram-generated greeting
+      twiml.play(greetingAudio)
+    } else {
+      // Fallback to Twilio's neural voice
+      twiml.say(
+        {
+          voice: "Polly.Joanna-Neural",
+          language: "en-US",
+        },
+        greeting,
+      )
+    }
+
+    // Connect to Render WebSocket server for real-time streaming
+    // IMPORTANT: Replace 'your-render-app-name' with your actual Render app name
+    const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://your-render-app-name.onrender.com"
+
+    const connect = twiml.connect()
+    connect.stream({
+      url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
       track: "both_tracks",
     })
 
-    // Pause to allow the stream to establish
-    twiml.pause({ length: 1 })
+    console.log("✅ Returning TwiML with Render WebSocket connection")
+    console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
 
-    console.log("✅ Returning TwiML response with Deepgram integration")
     return new NextResponse(twiml.toString(), {
       headers: { "Content-Type": "text/xml" },
     })
   } catch (error) {
     console.error("💥 Error handling incoming call:", error)
 
+    // Return error TwiML that still works
     const twiml = new twilio.twiml.VoiceResponse()
-    twiml.say("Sorry, we encountered an error processing your call. Please try again later.")
+    twiml.say(
+      {
+        voice: "Polly.Joanna-Neural",
+        language: "en-US",
+      },
+      "Sorry, we encountered an error processing your call. Please try again later or call back in a few minutes.",
+    )
 
     return new NextResponse(twiml.toString(), {
       headers: { "Content-Type": "text/xml" },
     })
   }
+}
+
+/**
+ * Generate greeting audio using Deepgram TTS
+ */
+async function generateDeepgramTTS(text: string): Promise<string | null> {
+  try {
+    console.log("🎤 Generating Deepgram TTS for greeting...")
+
+    const response = await fetch("https://api.deepgram.com/v1/speak?model=aura-asteria-en", {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${process.env.DEEPGRAM_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: text,
+      }),
+    })
+
+    if (response.ok) {
+      const audioBuffer = await response.arrayBuffer()
+      const base64Audio = Buffer.from(audioBuffer).toString("base64")
+      console.log("✅ Deepgram TTS generated successfully")
+      return `data:audio/wav;base64,${base64Audio}`
+    } else {
+      console.error("❌ Deepgram TTS failed:", response.status, response.statusText)
+    }
+  } catch (error) {
+    console.error("❌ Deepgram TTS error:", error)
+  }
+  return null
 }
