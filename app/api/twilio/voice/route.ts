@@ -1,124 +1,106 @@
+/**
+ * Twilio Voice Webhook Handler - Corrected version
+ */
+import { type NextRequest, NextResponse } from "next/server"
+import twilio from "twilio"
 import { createClient } from "@supabase/supabase-js"
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    console.log("=== TWILIO VOICE WEBHOOK CALLED ===")
+
     const formData = await request.formData()
-    const from = formData.get("From") as string
-    const to = formData.get("To") as string
-    const callSid = formData.get("CallSid") as string
+    const CallSid = formData.get("CallSid") as string
+    const From = formData.get("From") as string
+    const To = formData.get("To") as string
 
-    console.log(`📞 Incoming call from ${from} to ${to} (SID: ${callSid})`)
+    console.log(`📞 Incoming call from ${From} to ${To} (SID: ${CallSid})`)
+
+    // Query for counseling tenant by business_type and active status
     console.log("🔍 Querying for counseling tenant...")
+    const { data: tenants, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id, name, business_type, settings, active")
+      .eq("business_type", "counseling")
+      .eq("active", true)
+      .limit(1)
 
-    // Try different approaches to query the tenant
-    let tenant = null
-    let error = null
-
-    // Approach 1: Query with explicit column selection
-    try {
-      const { data, error: queryError } = await supabase
-        .from("tenants")
-        .select("id, name, phone_number, active") // Explicitly select columns
-        .eq("phone_number", to)
-        .single()
-
-      if (queryError) throw queryError
-      tenant = data
-      console.log("✅ Approach 1 successful:", tenant)
-    } catch (err) {
-      console.log("❌ Approach 1 failed:", err)
-      error = err
+    if (tenantError) {
+      console.error("❌ Database error:", tenantError)
+      throw new Error(`Database error: ${tenantError.message}`)
     }
 
-    // Approach 2: Query all columns and check what's available
-    if (!tenant) {
-      try {
-        const { data, error: queryError } = await supabase.from("tenants").select("*").eq("phone_number", to).single()
+    console.log("📊 Query result:", { tenants, count: tenants?.length })
 
-        if (queryError) throw queryError
-
-        console.log("📊 Available columns:", Object.keys(data))
-        console.log("📋 Full tenant data:", data)
-
-        // Check if tenant is active using different possible column names
-        const isActive = data.active ?? data.Active ?? data.is_active ?? data.status === "active" ?? true
-
-        tenant = {
-          ...data,
-          active: isActive,
-        }
-        console.log("✅ Approach 2 successful with fallback")
-      } catch (err) {
-        console.log("❌ Approach 2 failed:", err)
-        error = err
-      }
+    if (!tenants || tenants.length === 0) {
+      console.error("❌ No counseling tenant found")
+      throw new Error("No counseling tenant found")
     }
 
-    // Approach 3: Raw SQL query as last resort
-    if (!tenant) {
-      try {
-        const { data, error: queryError } = await supabase.rpc("get_tenant_by_phone", {
-          phone_number: to,
-        })
+    const tenant = tenants[0]
+    console.log("✅ Found tenant:", tenant.name, "ID:", tenant.id)
 
-        if (queryError) throw queryError
-        tenant = data
-        console.log("✅ Approach 3 (RPC) successful")
-      } catch (err) {
-        console.log("❌ Approach 3 failed:", err)
-      }
-    }
-
-    if (!tenant) {
-      throw new Error(`Database error: ${error?.message || "Unknown error"}`)
-    }
-
-    // Check if tenant is active (with fallbacks)
-    const isActive = tenant.active ?? tenant.is_active ?? tenant.status === "active" ?? true
-
-    if (!isActive) {
-      console.log("❌ Tenant is not active")
-      return new Response(
-        `<?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-          <Say>This service is currently unavailable. Please try again later.</Say>
-          <Hangup/>
-        </Response>`,
+    // Create or get user
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .upsert(
         {
-          headers: { "Content-Type": "text/xml" },
+          tenant_id: tenant.id,
+          phone_number: From,
+          name: "Caller",
+          metadata: { lastCallSid: CallSid },
+        },
+        {
+          onConflict: "tenant_id,phone_number",
         },
       )
+      .select()
+      .single()
+
+    if (userError) {
+      console.error("❌ User creation error:", userError)
+      // Continue anyway - don't fail the call for user creation issues
+    } else {
+      console.log("✅ User created/updated:", user?.id)
     }
 
-    console.log("✅ Tenant found and active:", tenant.name)
+    // Create conversation record
+    const { error: conversationError } = await supabase.from("conversations").insert({
+      tenant_id: tenant.id,
+      user_id: user?.id || null,
+      channel: "voice",
+      status: "active",
+      context: { callSid: CallSid, from: From, to: To, intent: "greeting" },
+    })
 
-    // Continue with your voice agent logic...
-    return new Response(
-      `<?xml version="1.0" encoding="UTF-8"?>
-      <Response>
-        <Say>Welcome to ${tenant.name}. Please hold while we connect you.</Say>
-        <Connect>
-          <Stream url="wss://your-websocket-url.com/stream"/>
-        </Connect>
-      </Response>`,
-      {
-        headers: { "Content-Type": "text/xml" },
-      },
-    )
+    if (conversationError) {
+      console.error("❌ Conversation creation error:", conversationError)
+      // Continue anyway - don't fail the call
+    }
+
+    // Create TwiML response with greeting
+    const twiml = new twilio.twiml.VoiceResponse()
+
+    const greeting =
+      tenant.settings?.voice_agent?.greeting ||
+      "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
+
+    twiml.say(greeting)
+
+    console.log("✅ Returning TwiML response")
+    return new NextResponse(twiml.toString(), {
+      headers: { "Content-Type": "text/xml" },
+    })
   } catch (error) {
     console.error("💥 Error handling incoming call:", error)
 
-    return new Response(
-      `<?xml version="1.0" encoding="UTF-8"?>
-      <Response>
-        <Say>We're experiencing technical difficulties. Please try again later.</Say>
-        <Hangup/>
-      </Response>`,
-      {
-        headers: { "Content-Type": "text/xml" },
-      },
-    )
+    const twiml = new twilio.twiml.VoiceResponse()
+    twiml.say("Sorry, we encountered an error processing your call. Please try again later.")
+
+    return new NextResponse(twiml.toString(), {
+      headers: { "Content-Type": "text/xml" },
+    })
   }
 }
