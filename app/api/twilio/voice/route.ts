@@ -1,5 +1,5 @@
 /**
- * Twilio Voice Webhook Handler - Using database function with fallback
+ * Twilio Voice Webhook Handler - TRUE bidirectional real-time streaming
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -129,70 +129,37 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
     console.log("✅ Conversation created")
   }
 
-  // Create TwiML response
+  // Create TwiML response for TRUE bidirectional streaming
   const twiml = new twilio.twiml.VoiceResponse()
 
   const greeting =
     tenant.settings?.voice_agent?.greeting ||
     "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
 
-  // Generate initial greeting with Deepgram TTS
-  const greetingAudio = await generateDeepgramTTS(greeting)
+  // Play initial greeting
+  twiml.say(
+    {
+      voice: "Polly.Joanna-Neural",
+      language: "en-US",
+    },
+    greeting,
+  )
 
-  if (greetingAudio) {
-    twiml.play(greetingAudio)
-  } else {
-    twiml.say(
-      {
-        voice: "Polly.Joanna-Neural",
-        language: "en-US",
-      },
-      greeting,
-    )
-  }
-
-  // Connect to Render WebSocket server
+  // Start bidirectional streaming
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
 
-  const connect = twiml.connect()
-  connect.stream({
+  twiml.start().stream({
     url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
     track: "both_tracks",
   })
 
-  console.log("✅ Returning TwiML with Render WebSocket connection")
+  // Keep the call alive for streaming
+  twiml.pause({ length: 3600 }) // 1 hour max call duration
+
+  console.log("✅ Returning TwiML with bidirectional streaming")
   console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
 
   return new NextResponse(twiml.toString(), {
     headers: { "Content-Type": "text/xml" },
   })
-}
-
-async function generateDeepgramTTS(text: string): Promise<string | null> {
-  try {
-    console.log("🎤 Generating Deepgram TTS for greeting...")
-
-    const response = await fetch("https://api.deepgram.com/v1/speak?model=aura-asteria-en", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${process.env.DEEPGRAM_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text: text,
-      }),
-    })
-
-    if (response.ok) {
-      const audioBuffer = await response.arrayBuffer()
-      const base64Audio = Buffer.from(audioBuffer).toString("base64")
-      console.log("✅ Deepgram TTS generated successfully")
-      return `data:audio/wav;base64,${base64Audio}`
-    } else {
-      console.error("❌ Deepgram TTS failed:", response.status, response.statusText)
-    }
-  } catch (error) {
-    console.error("❌ Deepgram TTS error:", error)
-  }
-  return null
 }
