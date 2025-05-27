@@ -1,5 +1,6 @@
 /**
  * Twilio Voice Webhook Handler - TRUE bidirectional real-time streaming
+ * Enhanced with Deepgram TTS for consistent voice experience
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -136,14 +137,56 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
     tenant.settings?.voice_agent?.greeting ||
     "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
 
-  // Play initial greeting
-  twiml.say(
-    {
-      voice: "Polly.Joanna-Neural",
-      language: "en-US",
-    },
-    greeting,
-  )
+  try {
+    // Generate greeting with Deepgram TTS for consistent voice
+    console.log("🎤 Generating greeting with Deepgram TTS")
+    const baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL || 
+                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+    
+    const deepgramTtsResponse = await fetch(`${baseUrl}/api/text-to-speech`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: greeting,
+        voiceModel: "aura-asteria-en"
+      }),
+    })
+
+    if (deepgramTtsResponse.ok) {
+      // Store the greeting audio temporarily
+      const greetingId = `greeting-${CallSid}`
+      
+      // Log the greeting audio URL for debugging
+      const audioUrl = `${baseUrl}/api/audio/${greetingId}`
+      console.log(`🔊 Greeting audio URL: ${audioUrl}`)
+      
+      // Play the greeting using <Play> verb
+      twiml.play(audioUrl)
+      console.log("✅ Using Deepgram TTS for greeting")
+    } else {
+      console.error("❌ Failed to generate Deepgram TTS, falling back to Polly")
+      // Fallback to Polly if Deepgram fails
+      twiml.say(
+        {
+          voice: "Polly.Joanna-Neural",
+          language: "en-US",
+        },
+        greeting
+      )
+    }
+  } catch (error) {
+    console.error("❌ Error generating Deepgram TTS, falling back to Polly:", error)
+    // Fallback to Polly if there's an error
+    twiml.say(
+      {
+        voice: "Polly.Joanna-Neural",
+        language: "en-US",
+      },
+      greeting
+    )
+  }
 
   // Start bidirectional streaming
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
