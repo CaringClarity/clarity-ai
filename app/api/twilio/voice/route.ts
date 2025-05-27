@@ -1,6 +1,6 @@
 /**
- * Twilio Voice Webhook Handler - TRUE bidirectional real-time streaming
- * Enhanced with Deepgram TTS for consistent voice experience
+ * Twilio Voice Webhook Handler - Deepgram TTS for greeting
+ * Ensures voice consistency throughout the entire call
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -132,16 +132,22 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
 
   // Create TwiML response for TRUE bidirectional streaming
   const twiml = new twilio.twiml.VoiceResponse()
-  
-  // Get the WebSocket URL
+
+  // IMPORTANT: No Twilio greeting - let the WebSocket server handle it with Deepgram
+  // This ensures voice consistency throughout the entire call
+
+  // Start bidirectional streaming
+  // FIXED: Use the correct WebSocket URL format that matches the server's expectations
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
   
-  // IMPORTANT CHANGE: Let the WebSocket server handle the greeting
-  // This ensures voice consistency and proper stream initialization
+  // Create a session ID that matches the expected format in streamingService.js
+  const sessionId = `session-${CallSid}-${Date.now()}`
   
-  // Start bidirectional streaming immediately
+  // Set flag to indicate that WebSocket server should send greeting
+  const greetingFlag = "sendGreeting=true"
+  
   twiml.start().stream({
-    url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
+    url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&sessionId=${sessionId}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}&${greetingFlag}`,
     track: "both_tracks",
   })
 
@@ -149,7 +155,7 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
   twiml.pause({ length: 3600 }) // 1 hour max call duration
 
   console.log("✅ Returning TwiML with bidirectional streaming")
-  console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
+  console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream with sessionId: ${sessionId}`)
   console.log("⚠️ Note: Greeting will be handled by WebSocket server for voice consistency")
 
   return new NextResponse(twiml.toString(), {
