@@ -1,7 +1,7 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "next-themes"
 import { BarChart3, TrendingUp, PieChart } from "lucide-react"
 
 interface ChartData {

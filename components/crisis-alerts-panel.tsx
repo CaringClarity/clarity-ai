@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, Phone, Clock, ExternalLink } from "lucide-react"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "next-themes"
 
 interface CrisisAlert {
   id: string

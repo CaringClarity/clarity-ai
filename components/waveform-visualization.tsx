@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "next-themes"
 
 interface WaveformVisualizationProps {
   isActive?: boolean

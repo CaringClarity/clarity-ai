@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Phone, MessageSquare, Globe, Clock, User } from "lucide-react"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "next-themes"
 
 interface CallLog {
   id: string

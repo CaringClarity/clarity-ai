@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "next-themes"
 
 interface MetricsPanelProps {
   title: string

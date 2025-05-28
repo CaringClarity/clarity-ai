@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, X, Clock, Code } from "lucide-react"
-import { useTheme } from "./theme-provider"
+import { useTheme } from "next-themes"
 
 interface ErrorLog {
   id: string
