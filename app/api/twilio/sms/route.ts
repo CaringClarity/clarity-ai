@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         {
           tenant_id: tenant.id,
           phone_number: From,
-          name: "SMS User",
+          first_name: "SMS", last_name: "User",
           metadata: { lastMessageSid: MessageSid },
         },
         {
