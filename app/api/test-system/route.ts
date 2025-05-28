@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       const testResult = await messageService.sendMessage({
         type: "general",
         urgency: "low",
-        callerInfo: { name: "Test User", phone: "555-0123", email: "test@example.com" },
+        callerInfo: { first_name: "Test", last_name: "User", phone: "555-0123", email: "test@example.com" },
         content: "This is a test message",
         callSid: "test-call-123",
       })
