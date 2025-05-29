@@ -1,6 +1,5 @@
 /**
  * Twilio Voice Webhook Handler - TRUE bidirectional real-time streaming
- * ECHO TEST VERSION - Fixed TwiML Schema
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -10,7 +9,7 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== TWILIO VOICE WEBHOOK CALLED (ECHO TEST) ===")
+    console.log("=== TWILIO VOICE WEBHOOK CALLED ===")
 
     const formData = await request.formData()
     const CallSid = formData.get("CallSid") as string
@@ -121,7 +120,7 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
     user_id: user?.id || null,
     channel: "voice",
     status: "active",
-    context: { callSid: CallSid, from: From, to: To, intent: "echo_test" },
+    context: { callSid: CallSid, from: From, to: To, intent: "greeting" },
   })
 
   if (conversationError) {
@@ -132,23 +131,33 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
 
   // Create TwiML response for TRUE bidirectional streaming
   const twiml = new twilio.twiml.VoiceResponse()
-  
-  // Set up the WebSocket URL
+
+  const greeting =
+    tenant.settings?.voice_agent?.greeting ||
+    "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
+
+  // Play initial greeting
+  twiml.say(
+    {
+      voice: "Polly.Joanna-Neural",
+      language: "en-US",
+    },
+    greeting,
+  )
+
+  // Start bidirectional streaming
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
-  const streamUrl = `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`
-  
-  // Create a simple Connect verb with Stream
-  // This is the most reliable way to set up bidirectional streaming without schema warnings
-  twiml.connect().stream({
-    url: streamUrl,
-    track: "both_tracks"
+
+  twiml.start().stream({
+    url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
+    track: "both_tracks",
   })
 
   // Keep the call alive for streaming
   twiml.pause({ length: 3600 }) // 1 hour max call duration
 
-  console.log("✅ Returning TwiML with bidirectional streaming (ECHO TEST)")
-  console.log(`🔗 WebSocket URL: ${streamUrl}`)
+  console.log("✅ Returning TwiML with bidirectional streaming")
+  console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
 
   return new NextResponse(twiml.toString(), {
     headers: { "Content-Type": "text/xml" },
