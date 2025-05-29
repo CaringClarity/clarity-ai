@@ -10,7 +10,7 @@ import { CallLogsPanel } from "./call-logs-panel"
 import { ErrorLogsPanel } from "./error-logs-panel"
 import { PerformanceCharts } from "./performance-charts"
 import { CrisisAlertsPanel } from "./crisis-alerts-panel"
-import { useTheme } from "next-themes" // Change this import
+import { useTheme } from "@/components/theme-provider" // Change this import
 import { Moon, Sun, Zap, Brain, RefreshCw, Download, AlertTriangle } from "lucide-react"
 
 interface DashboardData {
