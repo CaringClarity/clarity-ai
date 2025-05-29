@@ -1,5 +1,6 @@
 /**
  * Twilio Voice Webhook Handler - TRUE bidirectional real-time streaming
+ * ECHO TEST VERSION - Greeting removed
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -9,7 +10,7 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== TWILIO VOICE WEBHOOK CALLED ===")
+    console.log("=== TWILIO VOICE WEBHOOK CALLED (ECHO TEST) ===")
 
     const formData = await request.formData()
     const CallSid = formData.get("CallSid") as string
@@ -120,7 +121,7 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
     user_id: user?.id || null,
     channel: "voice",
     status: "active",
-    context: { callSid: CallSid, from: From, to: To, intent: "greeting" },
+    context: { callSid: CallSid, from: From, to: To, intent: "echo_test" },
   })
 
   if (conversationError) {
@@ -132,18 +133,20 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
   // Create TwiML response for TRUE bidirectional streaming
   const twiml = new twilio.twiml.VoiceResponse()
 
-  const greeting =
-    tenant.settings?.voice_agent?.greeting ||
-    "Hello! Thank you for calling Caring Clarity Counseling. I am Clara, your AI assistant. How can I help you today?"
+  // GREETING REMOVED FOR ECHO TEST
+  // Let the WebSocket handle all audio
 
-  // Play initial greeting
-  twiml.say(
-    {
-      voice: "Polly.Joanna-Neural",
-      language: "en-US",
-    },
-    greeting,
-  )
+  // Configure call with answering machine detection disabled
+  twiml.dial({
+    answerOnBridge: true,
+    amd: 'false' // Disable answering machine detection
+  }).conference('Echo Test', {
+    startConferenceOnEnter: true,
+    endConferenceOnExit: true,
+    beep: false,
+    record: false,
+    trim: 'trim-silence'
+  });
 
   // Start bidirectional streaming
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
@@ -151,12 +154,13 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
   twiml.start().stream({
     url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
     track: "both_tracks",
+    mode: "bidirectional" // Explicitly set bidirectional mode
   })
 
   // Keep the call alive for streaming
   twiml.pause({ length: 3600 }) // 1 hour max call duration
 
-  console.log("✅ Returning TwiML with bidirectional streaming")
+  console.log("✅ Returning TwiML with bidirectional streaming (ECHO TEST)")
   console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
 
   return new NextResponse(twiml.toString(), {
