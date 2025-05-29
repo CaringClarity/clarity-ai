@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useTheme } from "next-themes" // Change this import
+import { useTheme } from "@/components/theme-provider" // Change this import
 import {
   Sidebar,
   SidebarContent,
