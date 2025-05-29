@@ -249,3 +249,205 @@ export function EnhancedAIDashboard() {
               variant="outline"
               size="sm"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className={`relative ${
+                theme === "dark"
+                  ? "border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white backdrop-blur-sm"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50 backdrop-blur-sm"
+              }`}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Status Bar with glow */}
+        <div className="mb-6 flex items-center justify-between relative">
+          <div
+            className={`absolute inset-0 rounded-xl blur-lg ${theme === "dark" ? "bg-gray-800/20" : "bg-white/30"}`}
+          />
+
+          <div className="flex items-center space-x-4 text-sm relative">
+            <span className={`${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </span>
+            {dashboardData?.realTimeMetrics.crisisCount > 0 && (
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full blur-md bg-red-500/30 animate-pulse" />
+                <Badge className="relative bg-red-500 text-white animate-pulse">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  {dashboardData.realTimeMetrics.crisisCount} Crisis Alert
+                  {dashboardData.realTimeMetrics.crisisCount !== 1 ? "s" : ""}
+                </Badge>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-2 relative">
+            <div
+              className={`w-2 h-2 rounded-full ${
+                dashboardData?.realTimeMetrics.uptime > 99 ? "bg-green-500" : "bg-yellow-500"
+              }`}
+            />
+            <span className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+              {dashboardData?.realTimeMetrics.uptime}% uptime
+            </span>
+          </div>
+        </div>
+
+        {dashboardData && (
+          <>
+            {/* Real-time Metrics with enhanced glow */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+              <MetricsPanel
+                title="Active Calls"
+                metrics={[
+                  {
+                    label: "Current",
+                    value: dashboardData.realTimeMetrics.activeCalls,
+                    status: dashboardData.realTimeMetrics.activeCalls > 0 ? "good" : "warning",
+                  },
+                ]}
+              />
+              <MetricsPanel
+                title="Total Calls"
+                metrics={[
+                  {
+                    label: timeframe.toUpperCase(),
+                    value: dashboardData.realTimeMetrics.totalCalls,
+                    status: "good",
+                  },
+                ]}
+              />
+              <MetricsPanel
+                title="Response Time"
+                metrics={[
+                  {
+                    label: "Average",
+                    value: dashboardData.realTimeMetrics.avgResponseTime,
+                    unit: "ms",
+                    status: dashboardData.realTimeMetrics.avgResponseTime < 2000 ? "good" : "warning",
+                  },
+                ]}
+              />
+              <MetricsPanel
+                title="Quality Score"
+                metrics={[
+                  {
+                    label: "Average",
+                    value: dashboardData.realTimeMetrics.avgQualityScore,
+                    unit: "/100",
+                    status: dashboardData.realTimeMetrics.avgQualityScore > 80 ? "good" : "warning",
+                  },
+                ]}
+              />
+              <MetricsPanel
+                title="Intakes"
+                metrics={[
+                  {
+                    label: "Completed",
+                    value: dashboardData.realTimeMetrics.completedIntakes,
+                    status: "good",
+                  },
+                ]}
+              />
+              <MetricsPanel
+                title="Escalations"
+                metrics={[
+                  {
+                    label: "Rate",
+                    value: dashboardData.realTimeMetrics.escalationRate,
+                    unit: "%",
+                    status: dashboardData.realTimeMetrics.escalationRate < 10 ? "good" : "warning",
+                  },
+                ]}
+              />
+            </div>
+
+            {/* Performance Charts with glow */}
+            <div className="relative mb-8">
+              <div
+                className={`absolute inset-0 rounded-2xl blur-xl ${
+                  theme === "dark" ? "bg-blue-500/5" : "bg-blue-500/3"
+                }`}
+              />
+              <PerformanceCharts data={dashboardData.chartData} className="relative" />
+            </div>
+
+            {/* Activity Panels with enhanced glow */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+              <div className="relative">
+                <div
+                  className={`absolute inset-0 rounded-2xl blur-xl ${
+                    theme === "dark" ? "bg-green-500/8" : "bg-green-500/4"
+                  }`}
+                />
+                <CallLogsPanel logs={dashboardData.recentActivity.conversations} className="relative" />
+              </div>
+              <div className="relative">
+                <div
+                  className={`absolute inset-0 rounded-2xl blur-xl ${
+                    theme === "dark" ? "bg-red-500/8" : "bg-red-500/4"
+                  }`}
+                />
+                <ErrorLogsPanel errors={dashboardData.recentActivity.errorLogs} className="relative" />
+              </div>
+              <div className="relative">
+                <div
+                  className={`absolute inset-0 rounded-2xl blur-xl ${
+                    theme === "dark" ? "bg-yellow-500/8" : "bg-yellow-500/4"
+                  }`}
+                />
+                <CrisisAlertsPanel alerts={dashboardData.recentActivity.crisisLogs} className="relative" />
+              </div>
+            </div>
+
+            {/* Central Waveform Visualization with enhanced glow */}
+            <div className="relative">
+              <div
+                className={`absolute inset-0 rounded-2xl blur-2xl ${
+                  theme === "dark" ? "bg-blue-500/10" : "bg-blue-500/6"
+                }`}
+              />
+              <Card
+                className={`relative ${
+                  theme === "dark"
+                    ? "bg-gray-950/80 border-gray-800 backdrop-blur-sm"
+                    : "bg-gray-50/95 border-gray-100 backdrop-blur-sm"
+                } shadow-xl h-80`}
+              >
+                <div className="p-6 h-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg font-semibold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                      Voice Activity Monitor
+                    </h2>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="relative">
+                          <div
+                            className={`absolute inset-0 rounded-full blur-sm ${
+                              theme === "dark" ? "bg-blue-500/30" : "bg-blue-500/20"
+                            }`}
+                          />
+                          <Zap className={`relative w-4 h-4 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
+                        </div>
+                        <span className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+                          {dashboardData.realTimeMetrics.activeCalls > 0 ? "ACTIVE" : "IDLE"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-full">
+                    <WaveformVisualization
+                      isActive={dashboardData.realTimeMetrics.activeCalls > 0}
+                      intensity={0.7}
+                      className="h-full"
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
