@@ -147,9 +147,11 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
 
   // Start bidirectional streaming
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
-
+  
+  // FIXED: Ensure sessionId is properly passed and matches CallSid
+  // FIXED: Explicitly set track="both_tracks" for bidirectional audio
   twiml.start().stream({
-    url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
+    url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&sessionId=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}&sendGreeting=true`,
     track: "both_tracks",
   })
 
@@ -157,7 +159,7 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
   twiml.pause({ length: 3600 }) // 1 hour max call duration
 
   console.log("✅ Returning TwiML with bidirectional streaming")
-  console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
+  console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream?callSid=${CallSid}&sessionId=${CallSid}`)
 
   return new NextResponse(twiml.toString(), {
     headers: { "Content-Type": "text/xml" },
