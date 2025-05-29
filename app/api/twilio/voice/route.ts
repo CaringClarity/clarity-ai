@@ -132,24 +132,23 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
 
   // Create TwiML response for TRUE bidirectional streaming
   const twiml = new twilio.twiml.VoiceResponse()
-
-  // GREETING REMOVED FOR ECHO TEST
-  // Let the WebSocket handle all audio
-
-  // Start bidirectional streaming - DIRECT CONNECTION WITHOUT CONFERENCE
+  
+  // Set up the WebSocket URL
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
-
-  twiml.start().stream({
-    url: `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`,
-    track: "both_tracks",
-    mode: "bidirectional" // Explicitly set bidirectional mode
+  const streamUrl = `${renderWebSocketUrl}/stream?callSid=${CallSid}&tenantId=${tenant.id}&userId=${user?.id || "anonymous"}`
+  
+  // Create a simple Connect verb with Stream
+  // This is the most reliable way to set up bidirectional streaming without schema warnings
+  twiml.connect().stream({
+    url: streamUrl,
+    track: "both_tracks"
   })
 
   // Keep the call alive for streaming
   twiml.pause({ length: 3600 }) // 1 hour max call duration
 
   console.log("✅ Returning TwiML with bidirectional streaming (ECHO TEST)")
-  console.log(`🔗 WebSocket URL: ${renderWebSocketUrl}/stream`)
+  console.log(`🔗 WebSocket URL: ${streamUrl}`)
 
   return new NextResponse(twiml.toString(), {
     headers: { "Content-Type": "text/xml" },
