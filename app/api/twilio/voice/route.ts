@@ -1,6 +1,6 @@
 /**
  * Twilio Voice Webhook Handler - TRUE bidirectional real-time streaming
- * ECHO TEST VERSION - Greeting removed
+ * ECHO TEST VERSION - Fixed TwiML Schema
  */
 import { type NextRequest, NextResponse } from "next/server"
 import twilio from "twilio"
@@ -136,19 +136,7 @@ async function processTenantAndCall(tenant: any, CallSid: string, From: string, 
   // GREETING REMOVED FOR ECHO TEST
   // Let the WebSocket handle all audio
 
-  // Configure call with answering machine detection disabled
-  twiml.dial({
-    answerOnBridge: true,
-    amd: 'false' // Disable answering machine detection
-  }).conference('Echo Test', {
-    startConferenceOnEnter: true,
-    endConferenceOnExit: true,
-    beep: false,
-    record: false,
-    trim: 'trim-silence'
-  });
-
-  // Start bidirectional streaming
+  // Start bidirectional streaming - DIRECT CONNECTION WITHOUT CONFERENCE
   const renderWebSocketUrl = process.env.RENDER_WEBSOCKET_URL || "wss://voice-agent-websocket.onrender.com"
 
   twiml.start().stream({
