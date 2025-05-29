@@ -7,7 +7,7 @@ import { WaveformVisualization } from "./waveform-visualization"
 import { MetricsPanel } from "./metrics-panel"
 import { ActivityLog } from "./activity-log"
 import { ControlPanel } from "./control-panel"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/theme-provider"
 import { Moon, Sun, Zap, Brain, Phone, MessageSquare } from "lucide-react"
 
 export function AIVoiceDashboard() {
